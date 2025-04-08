@@ -1,0 +1,43 @@
+name: import
+
+on:
+  workflow_dispatch:
+  # 23:30 に実行する(9時間の時差を考慮)
+  schedule:
+    - cron: '30 14 * * *'
+
+jobs:
+  import_markdown:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Export The Notion Database to local markdown files.
+        id: export
+        uses: rendya2501/notion-md-converter-playground@main
+        with:
+          notion_auth_token: ${{ secrets.NOTION_AUTH_TOKEN }}
+          notion_database_id: ${{ secrets.NOTION_DATABASE_ID }}
+          output_directory_path_template: "./articles/{{publish|date.to_string('%Y/%m')}}/{{slug}}"
+      # - name: Export The Notion Database to local markdown files.
+      #   id: export_unity_weekly
+      #   uses: rendya2501/notion-md-converter-playground@main
+      #   with:
+      #     notion_auth_token: ${{ secrets.NOTION_AUTH_TOKEN }}
+      #     notion_database_id: ${{ secrets.NOTION_DATABASE_ID_FOR_UNITY_WEEKLY }}
+      #     output_directory_path_template: "./articles/project/unity-weekly/{{slug}}"
+      - name: Commit exported markdown files
+        if: ${{ steps.export.outputs.exported_count != '0' }}
+        run: |
+          git config --global user.email "${{ secrets.USER_EMAIL }}"
+          git config --global user.name "${{ secrets.USER_NAME }}"
+          git add ./articles
+          git commit -m "Import files from notion database" || exit 0
+          git push
+      # - name: Push markdown files
+      #   uses: ad-m/github-push-action@master
+      #   with:
+      #     github_token: ${{ secrets.MY_GITHUB_TOKEN }}
+      #     branch: ${{ github.ref }}
