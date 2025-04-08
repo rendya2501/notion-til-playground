@@ -34,7 +34,7 @@ jobs:
           git config --global user.email "${{ secrets.USER_EMAIL }}"
           git config --global user.name "${{ secrets.USER_NAME }}"        
           git add articles/
-          git commit -m "Import files from notion database" || exit 0
+          git commit -m "Import files from notion database"
           git push
       # - name: Push markdown files
       #   uses: ad-m/github-push-action@master
