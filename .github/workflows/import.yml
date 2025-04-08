@@ -29,7 +29,7 @@ jobs:
       #     notion_database_id: ${{ secrets.NOTION_DATABASE_ID_FOR_UNITY_WEEKLY }}
       #     output_directory_path_template: "./articles/project/unity-weekly/{{slug}}"
       - name: Commit exported markdown files
-        if: ${{ steps.export.outputs.exported_count != '0' }}
+        # if: ${{ steps.export.outputs.exported_count != '0' }}
         run: |
           git config --global user.email "${{ secrets.USER_EMAIL }}"
           git config --global user.name "${{ secrets.USER_NAME }}"
