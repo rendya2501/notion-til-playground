@@ -1,29 +1,30 @@
-name: import
+name: import  # ワークフロー名
 
 on:
-  workflow_dispatch:
-  # 23:30 に実行する(9時間の時差を考慮)
+  workflow_dispatch:  # 手動実行可能
   schedule:
-    - cron: '30 14 * * *'
+    - cron: '30 14 * * *'  # UTC 14:30 (日本時間 23:30) に毎日実行
 
 jobs:
-  import_markdown:
-    runs-on: ubuntu-latest
+  import_markdown:  # ジョブ名
+    runs-on: ubuntu-latest  # Ubuntu最新版で実行
     
     steps:
-      - name: Checkout repository
+      - name: Checkout repository  # リポジトリをチェックアウト
         uses: actions/checkout@v4
-          
+       
+      # NotionからMarkdownをエクスポート
       - name: Export The Notion Database to local markdown files.
-        id: export
-        uses: rendya2501/notion-md-converter-playground@main
+        id: export  # このステップにIDを付与して後で参照可能に
+        uses: rendya2501/notion-md-converter-playground@main  # カスタムアクション
         with:
           notion_auth_token: ${{ secrets.NOTION_AUTH_TOKEN }}
           notion_database_id: ${{ secrets.NOTION_DATABASE_ID }}
           output_directory_path_template: "./articles/{{publish|date.to_string('%Y/%m')}}/{{slug}}"
 
+      # エクスポートしたファイルをコミット
       - name: Commit and push exported markdown files
-        if: ${{ steps.export.outputs.exported_count != '0' }}
+        if: ${{ steps.export.outputs.exported_count != '0' }}  # エクスポートしたファイルがある場合のみ実行
         run: |
           git config --global user.email "${{ secrets.USER_EMAIL }}"
           git config --global user.name "${{ secrets.USER_NAME }}"        
