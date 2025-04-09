@@ -15,5 +15,3 @@ date: "2025-04-08T06:59:00"
 理想はオートメーションだが、有料なので使えない。  
 月2000円払う気があるなら問題なし。  
 [https://note.com/99drnikotora/n/nddbf498f045a](https://note.com/99drnikotora/n/nddbf498f045a)  
-
-test  
