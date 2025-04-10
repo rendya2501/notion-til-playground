@@ -20,7 +20,7 @@ jobs:
         with:
           notion_auth_token: ${{ secrets.NOTION_AUTH_TOKEN }}
           notion_database_id: ${{ secrets.NOTION_DATABASE_ID }}
-          output_directory_path_template: "/articles/{{publish|date.to_string('%Y/%m')}}/{{slug}}"
+          output_directory_path_template: "articles/{{publish|date.to_string('%Y/%m')}}/{{slug}}"
 
       # エクスポートしたファイルをコミット
       - name: Commit and push exported markdown files
