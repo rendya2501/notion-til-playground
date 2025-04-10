@@ -5,7 +5,7 @@ date: "2025-03-31T00:00:00"
 ---
 
 
-[](https://x.com/umitsutech/status/1906258028598554683)  
+[sdsd](https://x.com/umitsutech/status/1906258028598554683)  
 
 AWS触ってて、困ったことがあったらclaudeに相談  
 ↓  
