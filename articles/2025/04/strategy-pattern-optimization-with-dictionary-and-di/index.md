@@ -1,14 +1,14 @@
 ---
 type: "Tech"
 title: "Strategy パターンにおける検索最適化：FirstOrDefault から Dictionary への移行と DI コンテナでの実装例"
-tags: ["C#","DesignPattern"]
+tags: ["C#","DesignPattern",".NET"]
 date: "2025-04-20T00:00:00"
 ---
 
 ## はじめに
 
 本記事は、.NET の DI コンテナを用いたストラテジーパターン実装の備忘録です。  
-.NETのDIコンテナ `Microsoft.Extensions.DependencyInjection` でストラテジーパターンを実装した際、同一インターフェースを `IEnumerable<IStrategy>`  で注入出来ることを知ったので、  `FirstOrDefault`  で戦略を見つける形で実装していましたが、O(n)の計算量がかかるというので、O(1)で検索できる `Dictionary<StrategyKey, IStrategy>` で実装出来たので、それらの違いをまとめました。  
+.NETのDIコンテナ `Microsoft.Extensions.DependencyInjection` でストラテジーパターンを実装した際、同一インターフェースを `IEnumerable<IStrategy>`  で注入出来ることを知ったので、  `FirstOrDefault`  で戦略を見つける形で実装していましたが、O(n)の計算量がかかるというので、O(1)で検索できる `Dictionary` で実装してみたところ実現出来たので、それらの実装方法をまとめることにしました。  
 
 ## 実行環境
 - Win11  
@@ -23,6 +23,17 @@ date: "2025-04-20T00:00:00"
 - `Dictionary<StrategyKey, IStrategy>` によって戦略を O(1) で高速に取得  
 - 戦略が見つからない場合は、`DefaultStrategy` を適用  
 
+**Strategyの識別に使うenumの定義**  
+``` c#
+public enum StrategyKey
+{
+    TypeA,
+    TypeB,
+    TypeC,
+    Unknown
+}
+```
+
 **Strategyのインターフェースと実装**  
 ``` c#
 // Strategy インターフェース
@@ -36,7 +47,7 @@ public interface IStrategy
 public interface IDefaultStrategy : IStrategy { }
 ```
 
-それぞれの処理戦略の実装：  
+**それぞれの処理戦略の実装**  
 ``` c#
 // 通常のストラテジー
 public class StrategyA : IStrategy
@@ -63,17 +74,6 @@ public class DefaultStrategy : IDefaultStrategy
 {
     public StrategyKey Key => StrategyKey.Unknown;
     public string Execute(string input) => $"[Default Strategy] Input: {input}";
-}
-```
-
-**Strategyの識別に使う** **`enum`**  
-``` c#
-public enum StrategyKey
-{
-    TypeA,
-    TypeB,
-    TypeC,
-    Unknown
 }
 ```
 
@@ -109,6 +109,8 @@ public class ContentHandler(
 
 **DIコンテナへの登録と処理の実行**  
 ``` c#
+using Microsoft.Extensions.DependencyInjection;
+
 // Program.cs などの DI コンテナ設定
 var services = new ServiceCollection();
 
@@ -134,15 +136,16 @@ var inputs = new List<(StrategyKey, string)>
 // サービスプロバイダーの構築
 var serviceProvider = services.BuildServiceProvider();
 var handler = serviceProvider .GetRequiredService<IContentHandler>();
+// 実行
 var output = handler.HandleContent(inputs);
 
-Console.WriteLine("=== Strategy Output ===");
+Console.WriteLine("=== 1. FirstOrDefault Pattern Strategy Output ===");
 Console.WriteLine(output);
 ```
 
 **実行結果**  
 ``` plain text
-=== Strategy Output ===
+=== 1. FirstOrDefault Pattern Strategy Output ===
 [A Strategy] Input: 1. First input
 [B Strategy] Input: 2. Second input
 [C Strategy] Input: 3. Third input
@@ -184,6 +187,8 @@ public class ContentHandler(
 
 **DIコンテナへの登録と処理の実行**  
 ``` c#
+using Microsoft.Extensions.DependencyInjection;
+
 // Program.cs などの DI コンテナ設定
 var services = new ServiceCollection();
 
@@ -194,7 +199,7 @@ services.AddSingleton<IStrategy, StrategyC>();
 services.AddSingleton<IDefaultStrategy, DefaultStrategy>();
 
 // Dictionary を生成して DI コンテナに登録
-services.AddSingleton(provider =>
+services.AddSingleton<IDictionary<StrategyKey, IStrategy>>(provider =>
 {
     var strategies = provider.GetServices<IStrategy>();
     return strategies.ToDictionary(s => s.Key);
@@ -216,15 +221,16 @@ var inputs = new List<(StrategyKey, string)>
 // サービスプロバイダーの構築
 var serviceProvider = services.BuildServiceProvider();
 var handler = serviceProvider .GetRequiredService<IContentHandler>();
+// 実行
 var output = handler.HandleContent(inputs);
 
-Console.WriteLine("=== Strategy Output ===");
+Console.WriteLine("=== 2. Dictionary Pattern Strategy Output ===");
 Console.WriteLine(output);
 ```
 
 **実行結果**  
 ``` plain text
-=== Strategy Output ===
+=== 2. Dictionary Pattern Strategy Output ===
 [A Strategy] Input: 1. First input
 [B Strategy] Input: 2. Second input
 [C Strategy] Input: 3. Third input
@@ -233,11 +239,11 @@ Console.WriteLine(output);
 [Default Strategy] Input: 6. Unknown input
 ```
 
-## 案3 : Dictionary + IDictionary拡張 パターン
+## 案3 : IDictionary拡張 パターン
 
 `IDictionary` では `GetValueOrDefault` メソッドが存在しないので `IDictionary` インターフェースに拡張メソッドを定義して `GetValueOrDefault` メソッドを実装して使用できるようにしたパターン。  
-やっていることは案2と変わりない。  
-DIを `IDictionary` 型ではなく `Dictionary` 型にすれば、やらなくても良いことではある。  
+やっていることは案2と変わりないです。  
+DIを `IDictionary` 型ではなく `Dictionary` 型にするとやらなくても良いことではあるが、割と感動したのでメモしておく。  
 
 ``` c#
 
@@ -246,7 +252,6 @@ public interface IContentHandler
     string HandleContent(List<(StrategyKey key, string input)> inputs);
 }
 
-// ContentHandler（変換処理クラス）
 public class ContentHandler(
     IDictionary<StrategyKey, IStrategy> _strategyMap,
     IDefaultStrategy _defaultStrategy) : IContentHandler
@@ -280,16 +285,19 @@ public static class DictionaryExtensions
 }
 ```
 
-### ✅ メリットとデメリット（一般論として）
-### メリット
+## メリットとデメリット（一般論として）
+
+**メリット**  
 - **検索速度の向上**：O(n) → O(1)  
 - **拡張性**：Strategy を追加・削除しやすい  
 - **テストしやすい**：依存注入によりテスト可能性向上  
-### デメリット
+
+**デメリット**  
 - **初期化コスト**：Dictionary 構築時に O(n)  
 - **構成の複雑化**：Factory や Dictionary の管理が必要  
 
-### 🧭 結論（適用判断の指針）
+## 結論（適用判断の指針）
+
 | 条件                  | 推奨手法                          |
 | ------------------- | ----------------------------- |
 | Strategy 数が少ない（<10）   | `FirstOrDefault` でも十分         |
