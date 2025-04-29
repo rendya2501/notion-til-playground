@@ -17,6 +17,7 @@ redirect_from:
   - /articles/error-github-enterprise-version-is-too-old
   - /articles/getting-started-with-github-for-windows
 type: "overview"
+comments: true
 ---
 
 ## 概要
