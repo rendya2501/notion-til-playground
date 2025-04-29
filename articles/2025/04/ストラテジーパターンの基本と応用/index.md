@@ -1,6 +1,7 @@
 ---
 type: "Tech"
 title: "ストラテジーパターンの基本と応用"
+shortTitle: Contributing to projects
 description: "コンボボックスにa,b,cの選択肢があります。
 a,b,cそれぞれを選んだ場合の動作は異なります。
 故にストラテジーパターンが使えると想定出来ます。
@@ -11,6 +12,10 @@ date: "2025-04-23T00:00:00"
 versions:
   fpt: '*'
   ghes: '>=3.11'
+redirect_from:
+  - /articles/first-launch
+  - /articles/error-github-enterprise-version-is-too-old
+  - /articles/getting-started-with-github-for-windows
 ---
 
 ## 概要
