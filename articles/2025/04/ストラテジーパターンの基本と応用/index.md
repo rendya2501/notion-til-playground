@@ -18,6 +18,7 @@ redirect_from:
   - /articles/getting-started-with-github-for-windows
 type: "overview"
 comments: true
+source: https://note.com/kodai1_jp/n/n507793165034
 ---
 
 ## 概要
