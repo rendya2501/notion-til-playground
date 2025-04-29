@@ -3,7 +3,6 @@ type: "Idea"
 title: "Test5"
 description: "GGGG"
 date: "2025-04-07T00:00:00"
-Cover: "![[D8A884AA103CA91AB522FCDAAC79892C.png]]"
 ---
 
 aaaaaaa  
