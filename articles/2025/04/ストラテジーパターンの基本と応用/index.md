@@ -16,7 +16,6 @@ redirect_from:
   - /articles/first-launch
   - /articles/error-github-enterprise-version-is-too-old
   - /articles/getting-started-with-github-for-windows
-
 type
   - overview
   - hoge
