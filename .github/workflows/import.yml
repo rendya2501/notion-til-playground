@@ -10,24 +10,31 @@ jobs:
     runs-on: ubuntu-latest  # Ubuntu最新版で実行
     
     steps:
+      # actions/checkout は GitHub公式アクション。
+      # リポジトリのコードをランナー（ubuntu）にダウンロードしてくれる。
+      # これがないと git push など後続のステップが動かない。
       - name: Checkout repository  # リポジトリをチェックアウト
         uses: actions/checkout@v4
        
       # NotionからMarkdownをエクスポート
+      # 自分の別リポジトリに置いたカスタムアクションを呼び出す。
+      # @main = mainブランチの action.yml が実行される。
+      # with: でアクション側に定義された引数を渡す。
       - name: Export The Notion Database to local markdown files.
         id: export  # このステップにIDを付与して後で参照可能に
-        uses: rendya2501/notion-md-converter-playground@main  # カスタムアクション
+        uses: rendya2501/notion-md-converter-playground@main
         with:
           notion_auth_token: ${{ secrets.NOTION_AUTH_TOKEN }}
           notion_database_id: ${{ secrets.NOTION_DATABASE_ID }}
           output_directory_path_template: "articles/{{publish|date.to_string('%Y/%m')}}/{{slug}}"
 
-      # エクスポートしたファイルをコミット
+      # エクスポート件数が0でない場合のみコミット・プッシュする。
+      # steps.export.outputs.exported_count は export ステップが GITHUB_OUTPUT に書いた値。
       - name: Commit and push exported markdown files
-        if: ${{ steps.export.outputs.exported_count != '0' }}  # エクスポートしたファイルがある場合のみ実行
+        if: ${{ steps.export.outputs.exported_count != '0' && steps.export.outputs.exported_count != '' }}
         run: |
-          git config --global user.email "${{ secrets.USER_EMAIL }}"
-          git config --global user.name "${{ secrets.USER_NAME }}"        
+          git config --global user.email "${{ vars.USER_EMAIL }}"
+          git config --global user.name "${{ vars.USER_NAME }}"        
           git add articles/
-          git commit -m "Import files from notion database (${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER})" || echo "No changes to commit"
-          git push origin ${{ github.ref_name }} || echo "No changes to push"
+          git commit -m "Import files from notion database (${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER})"
+          git push origin ${{ github.ref_name }}
