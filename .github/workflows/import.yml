@@ -3,7 +3,7 @@ name: import  # ワークフロー名
 on:
   workflow_dispatch:  # 手動実行可能
   schedule:
-    - cron: '30 14 * * *'  # UTC 14:30 (日本時間 23:30) に毎日実行
+    - cron: '0 14 * * *'  # UTC 14:00 (日本時間 23:00) に毎日実行
 
 jobs:
   import_markdown:  # ジョブ名
