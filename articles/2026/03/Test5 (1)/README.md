@@ -121,7 +121,8 @@ https://www.youtube.com/watch?v=mEUfiX_JIT0
 数式ブロックテスト1  
 
 $$
-x + y = 1 \\ x^2 + y^1 = 1
+x + y = 1 \\ 
+x^2 + y^1 = 1
 $$
 
 
