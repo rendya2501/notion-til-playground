@@ -1,9 +1,11 @@
 ---
 title: "業務システムにおけるマスターデータ管理のベストプラクティス"
 type: "Tech"
-description: "・https://claude.ai/chat/0eba869c-5ee9-4c85-9076-a83209b1eca0
+description: "業務アプリケーションの設計において見落とされがちな、マスターデータの**「階層構造の削除」「名称変更時の整合性」「過去データの遡及修正」**という3つの重要課題に焦点を当てた技術記事です 。論理削除の具体的な実装パターンから、Event Sourcingのような高度な設計、SOX法を意識したエンタープライズ向けの訂正指針まで、実務に即したベストプラクティスを網羅しています 。
+
+・https://claude.ai/chat/0eba869c-5ee9-4c85-9076-a83209b1eca0
 ・https://gemini.google.com/app/35f79f53897dfafc"
-tags: ["Architecture"]
+tags: ["Architecture","DB","C#"]
 date: "2026-03-28T00:00:00"
 ---
 
@@ -16,13 +18,13 @@ date: "2026-03-28T00:00:00"
 ## 1. 階層データの削除設計
 ### 代表的な4パターン
 ### ① 論理削除（推奨）
-実データは残し、「削除済み」状態を管理する方法です。業務アプリでは最も一般的かつ推奨される手法です[^1]。  
+実データは残し、「削除済み」状態を管理する方法です。業務アプリでは最も一般的かつ推奨される手法です。Microsoft Learn の EF Core 公式ドキュメントでも、`IsDeleted` フラグ＋`HasQueryFilter` によるグローバルフィルターをソフトデリートの標準実装として紹介しています [※1]。  
 論理削除の実装には「削除フラグ」と「ステータス管理」の2種類があります。詳細は後述します。  
 - **メリット：** 誤操作からの復旧が容易。過去の統計データとの整合性が保ちやすいです  
 - **デメリット：** 全クエリに削除済みを除外する条件が必要になります  
-EF Core では `HasQueryFilter` でグローバルフィルターを設定することで、書き忘れのリスクを緩和できます。  
+EF Core では `HasQueryFilter` でグローバルフィルターを設定することで、書き忘れのリスクを緩和できます [※1]。  
 ```c#
-// Microsoft Learn 公式のソフトデリート実装例[^1]
+// Microsoft Learn 公式のソフトデリート実装例
 public class Blog
 {
     public int Id { get; set; }
@@ -52,7 +54,7 @@ DB制約で親削除時に子・孫を物理削除します。
 | 拡張性     | 状態が増えた場合にカラム追加が必要   | enum 値の追加で対応できる        |
 | 適している場面   | 「有効/無効」の二値で十分な場合    | 複数の意味ある状態がビジネス上存在する場合   |
 「廃止」「一時停止」「審査中」など複数の意味ある状態がビジネス上存在するなら Status enum が自然です。単純に「使う/使わない」の二値で十分なら `is_deleted` フラグで問題ありません。  
-DDD の Eric Evans が説く「ドメインの概念を明示的にせよ」という原則は[^2]、フラグを禁止しているのではなく「ビジネスに存在する状態を正直にモデリングせよ」という意味です。`is_deleted` を `Status` enum に変えれば設計が改善されるわけではなく、**ドメインに複数の状態が実在するなら enum で表現する方が自然**ということです。  
+DDD の Eric Evans は著書第9章「暗黙の概念を明示的にする（Making Implicit Concepts Explicit）」で [※2]、ドメインに存在する概念をコードで明示的に表現することを説いています。これはフラグを禁止しているのではなく「ビジネスに存在する状態を正直にモデリングせよ」という意味です。`is_deleted` を `Status` enum に変えれば設計が改善されるわけではなく、**ドメインに複数の状態が実在するなら enum で表現する方が自然**ということです。  
 いずれの場合も `deleted_at`（削除日時）と `deleted_by`（削除者）の audit 列を合わせて持たせることで、「いつ・誰が」の情報を補完できます。  
 ### 削除フラグを使う場合の実装例
 ```c#
@@ -121,7 +123,7 @@ inactive なレコードを別テーブルに移すため、アクティブテ�
 ### ④ アプリケーション側チェック
 既存の Active レコードを事前確認してから INSERT する方法です。同時アクセス時のレースコンディションリスクがあるため、データ量や要件を考慮して採用を判断してください。  
 ### 台帳（マスター）画面の正しい設計
-**「台帳画面に削除ボタンを置かず、ステータス変更にする」** のが広く普及しているエンタープライズの設計慣行です。廃止や無効化を「削除」ではなくライフサイクルの状態遷移として扱う考え方は、大規模 ERP システム（SAP、Oracle EBS 等）でも一般的に採用されています。  
+**「台帳画面に削除ボタンを置かず、ステータス変更にする」** のは、具体的な根拠のある設計方針です。Microsoft 自身の Master Data Services（MDS）では、UIからの削除操作はデフォルトでソフトデリート（非活性化）になっており、`MasterDataStatus` に `Active`/`Deprecated` を持たせる実装が公式ドキュメントで紹介されています [※3]。また .NET の著名人 Milan Jovanović も「エンタープライズシステムでは通常データを『削除』することを考えない。注文のキャンセル、支払いの返金、請求書の無効化といったビジネスの概念があるだけだ」と述べています [※8]。  
 | 画面        | 設計                                     |
 | --------- | -------------------------------------- |
 | 一覧画面      | デフォルトは有効なデータのみ表示。「廃止済みを含める」チェックボックスを用意   |
@@ -145,13 +147,37 @@ inactive なレコードを別テーブルに移すため、アクティブテ�
 | 時間窓（任意）   | 作成から24時間以内、または同一営業日内など            |
 実務では「参照ゼロ」の条件単独で十分なケースが多く、時間窓を加えるかはビジネス要件次第です。  
 ### より進んだ設計：Event Sourcing
-削除・変更を「状態の更新」ではなく「イベントの追記」として扱う設計思想です[^3]。すべての変更履歴が自然に残り、任意の時点の状態を再現できます。ただし実装コストが高く、規模の小さな業務システムへの導入は慎重に判断すべきです。金融・医療・法務系など監査要件が厳しいシステムでは有力な選択肢となります。  
+削除・変更の設計の延長線上にある発展的なアーキテクチャパターンとして、Event Sourcing があります。  
+### 基本的な考え方
+通常の設計では「現在の状態」をテーブルに保持します。たとえば商品テーブルに `item_name = "商品A"` と保存し、名称変更時は UPDATE します。Event Sourcing ではこのアプローチを根本から変え、**「状態そのものではなく、状態を変化させたイベントの列を記録する」** 方式を採ります [※4][※5]。  
+```plain text
+通常の設計：テーブルに現在の状態を保存
+  items テーブル → item_name = "商品B"（Aから変更済み、過去は失われる）
+
+Event Sourcing：イベントの列を保存
+  events テーブル →
+    {type: "ItemCreated",   name: "商品A", at: 2024-01-01}
+    {type: "ItemRenamed",   name: "商品B", at: 2025-03-15}
+    {type: "ItemObsoleted", at:           2025-08-01}
+```
+現在の状態が必要なときは、イベントの列を先頭から再生（リプレイ）して導出します。  
+### Event Sourcing が解決すること
+- **完全な監査証跡：** すべての変更が「いつ・何が起きたか」として記録されます  
+- **任意時点への巻き戻し：** イベント列を途中まで再生することで、過去の任意時点の状態を完全に再現できます  
+- **削除の問題が自然に解消：** 削除もイベント（例：`ItemObsoleted`）として追記するため、論理削除フラグや status カラムの設計問題が根本から消えます  
+- **訂正の問題が自然に解消：** 過去の訂正も補正イベントとして追記するため、「過去レコードを書き換える」問題が発生しません  
+### CQRS との組み合わせ
+Event Sourcing は多くの場合 CQRS（Command Query Responsibility Segregation）と組み合わせて使われます。イベントストアへの書き込み（Command）と、集計・表示用のビュー（Query）を分離することで、イベント列の再生コストという弱点を補います [※5]。  
+### 採用すべき場面
+Event Sourcing の実装コストは高く、スキーマ変更の難しさなど特有の問題も存在します。Microsoft Azure のドキュメントでは「監査可能性や履歴の再構築がビジネス的に重要な場合に採用を検討すべき」とされており、すべてのシステムに適用すべきパターンではありません [※5]。金融・医療・法務など監査要件が特に厳しい領域での採用が現実的です。  
+Fowler 自身も「Event Sourcing はほぼすべての会計システムで見られる」と述べており、会計・財務系のドメインとの親和性が特に高いパターンです [※4]。  
 ## 2. 名称変更時の過去データ保護
 ### 問題の本質
 マスターテーブルの名称カラムを単純に `UPDATE` すると、過去の売上伝票を参照した際に「当時 A という名前で売ったのに、画面上では B になっている」という整合性の破壊が起きます。  
 ### 解決パターン
 ### ① スナップショット方式（名称コピー）
-最もシンプルで、多くの ERP や EC サイトが採用している方法です。  
+最もシンプルで、最もよく普及している方法です。  
+Microsoft の技術者が Microsoft Q&A で明示的に説明しているように [※6]、`UnitPrice` はマスタテーブル（Products）と明細テーブル（OrderDetails）の両方に持たせます。マスタ側は「現在の価格」を、明細側は「注文時点の価格」を保存します。こうすることで、マスタの価格が変更されても過去の注文には影響しません。FileMaker の公式データベース設計ドキュメントでも、Line Items テーブルには「商品名・単価・数量・合計」を保持すると記載されています [※7]。  
 **設計：** トランザクションテーブル（売上伝票等）に `item_name` や `unit_price` のカラムを持たせ、確定時の値をそのままコピーして保存します。  
 ```sql
 -- 受注テーブルの例
@@ -168,7 +194,7 @@ CREATE TABLE orders (
 - **デメリット：** ストレージ消費が増えますが、現代のDB設計では許容範囲内です  
 **→ 実装コストと運用保守のバランスが最もよく、第一候補として推奨します。**  
 ### ② バージョニング方式（履歴保持）
-「いつからいつまでこの名前だったか」をマスター自体で管理する方法です。SCD の **Type 2** に相当します[^4]。  
+「いつからいつまでこの名前だったか」をマスター自体で管理する方法です。SCD の **Type 2** に相当します [※9]。  
 **設計：** マスタテーブルに `effective_date`（適用開始日）と `expiry_date`（適用終了日）を持たせ、名前を変えるときは既存レコードを UPDATE せず新レコードを INSERT します。  
 ```sql
 -- 商品マスタ（バージョニング）
@@ -191,7 +217,7 @@ JOIN items i
 - **メリット：** 「過去の任意時点でのマスタ状態」を完全に再現できます  
 - **デメリット：** SQL の結合条件が複雑になり、インデックス設計が難しくなります  
 ### SCD（Slowly Changing Dimensions）とは
-データウェアハウス設計の権威 Ralph Kimball が提唱した、「緩やかに変化するマスターデータ」の分類です[^4]。  
+データウェアハウス設計の権威 Ralph Kimball が提唱した、「緩やかに変化するマスターデータ」の分類です [※9]。  
 | 型      | 概要                 | 対応パターン            |
 | ------ | ------------------ | ----------------- |
 | Type 1   | 上書き（履歴なし）          | 単純なUPDATE         |
@@ -199,7 +225,7 @@ JOIN items i
 | Type 3   | 前の値を別カラムに保持（限定的履歴）   | `prev_name` カラムなど   |
 業務システムのマスター管理で「名称の変更履歴を残したい」という要件は、**Type 2** の採用を意味します。  
 ### ③ SQL Server Temporal Tables（システムバージョン管理テーブル）
-SQL Server 2016 以降で利用可能なDB機能です。バージョニング方式の履歴管理をDB側が自動で行います[^5]。  
+SQL Server 2016 以降で利用可能なDB機能です。バージョニング方式の履歴管理をDB側が自動で行います [※10]。  
 ```sql
 CREATE TABLE items (
     id         BIGINT PRIMARY KEY,
@@ -231,8 +257,8 @@ FOR SYSTEM_TIME AS OF '2025-01-01';
 **承認済み・集計済みの過去データを直接修正することは、エンタープライズの領域では原則禁止です。**  
 理由は以下の2点です。  
 1. **監査証跡の破壊**  
-   - SOX法やISO監査基準では、取引記録の不変性が求められます  
-   - 過去レコードの直接編集は事実上の改ざんとみなされる場合があります  
+   - SOX法（Section 802）では財務記録の7年間保存と改ざん防止が義務付けられており、「何が変更されたか・誰が・いつ・なぜ」をすべて記録することが求められます [※11]  
+   - 承認済みの過去レコードを直接編集することは、この監査証跡の要件に反する行為とみなされます  
 2. **整合性の連鎖崩壊**  
    - 月次集計・請求・在庫更新などの後続処理がすでに走っている場合、原レコードを修正すると関連するすべての集計値との整合性が取れなくなります  
    - マスターデータ（商品名・単価など）を遡及変更した場合、スナップショット方式を採用していない限り過去のすべての伝票表示に影響します  
@@ -296,32 +322,39 @@ FOR SYSTEM_TIME AS OF '2025-01-01';
 - 承認済みの過去データを直接書き換えることは原則禁止  
 - 差異を新しいトランザクションとして起票し、監査証跡を残す  
 ## 参考リソース
-### EF Core（論理削除の実装）
-| 内容                                     | URL                                                        |
-| -------------------------------------- | ---------------------------------------------------------- |
-| EF Core Global Query Filters（公式ドキュメント）   | https://learn.microsoft.com/en-us/ef/core/querying/filters   |
+### EF Core（論理削除・HasQueryFilter）
+| 内容                                                          | URL                                                                                                                      |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| ※1 EF Core Global Query Filters — 公式ドキュメント（Microsoft Learn）   | [https://learn.microsoft.com/en-us/ef/core/querying/filters](https://learn.microsoft.com/en-us/ef/core/querying/filters)   |
 ### DDD・設計思想
-| 内容                                                   | URL                                            |
-| ---------------------------------------------------- | ---------------------------------------------- |
-| Martin Fowler - Analysis Patterns（Temporal Patterns）   | https://martinfowler.com/books/ap.html         |
-| DMBOK（データマネジメント知識体系ガイド）                              | https://www.dama.org/cpages/body-of-knowledge   |
-| Soft Delete Anti-pattern（Depesz）                     | https://www.depesz.com/2010/01/12/soft-delete/   |
-### SCD（緩やかに変化するディメンション）
-| 内容                      | URL                                                                                                                                                              |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Kimball Group - SCD の解説   | https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimension-type-1/   |
-### SQL Server Temporal Tables
-| 内容                                        | URL                                                                                                                     |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Temporal Tables 公式ドキュメント（Microsoft Learn）   | https://learn.microsoft.com/ja-jp/sql/relational-databases/tables/temporal-tables                                       |
-| Temporal Tables 入門（Microsoft Learn）       | https://learn.microsoft.com/ja-jp/sql/relational-databases/tables/getting-started-with-system-versioned-temporal-tables   |
+| 内容                                                                                    | URL                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ※2 Eric Evans『Domain-Driven Design』第9章 Making Implicit Concepts Explicit（2003、書籍）     | [https://www.oreilly.com/library/view/domain-driven-design-tackling/0321125215/](https://www.oreilly.com/library/view/domain-driven-design-tackling/0321125215/)         |
+| ※3 SQL Server MDS — ソフトデリート（非活性化）がデフォルト動作であることの解説（SQLServerCentral）                   | [https://www.sqlservercentral.com/blogs/master-data-services-mds-miscellaneous-tips](https://www.sqlservercentral.com/blogs/master-data-services-mds-miscellaneous-tips)   |
+| ※8 Milan Jovanović — Implementing Soft Delete With EF Core（エンタープライズでは削除でなくビジネス概念で考える）   | [https://www.milanjovanovic.tech/blog/implementing-soft-delete-with-ef-core](https://www.milanjovanovic.tech/blog/implementing-soft-delete-with-ef-core)                 |
+| Soft Delete Anti-pattern（Depesz）                                                      | [https://www.depesz.com/2010/01/12/soft-delete/](https://www.depesz.com/2010/01/12/soft-delete/)                                                                         |
+| DMBOK — データマネジメント知識体系ガイド（国際標準）                                                        | [https://www.dama.org/cpages/body-of-knowledge](https://www.dama.org/cpages/body-of-knowledge)                                                                           |
+### スナップショット方式（名称・価格コピー）
+| 内容                                                   | URL                                                                                                                                                                                                                              |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ※6 Microsoft Q&A — 注文時点の単価をOrderDetailsに保存するパターンの解説   | [https://learn.microsoft.com/en-us/answers/questions/4901317/database-design-for-stock-with-cost-different-from](https://learn.microsoft.com/en-us/answers/questions/4901317/database-design-for-stock-with-cost-different-from)   |
+| ※7 FileMaker 公式 — Line Itemsテーブルに商品名・単価・数量を保持する設計の記述   | [https://fmhelp.filemaker.com/help/18/fmp/en/FMP_Help/planning-databases.html](https://fmhelp.filemaker.com/help/18/fmp/en/FMP_Help/planning-databases.html)                                                                     |
 ### Event Sourcing
-| 内容                                                 | URL                                                                          |
-| -------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Event Sourcing パターン（Microsoft Azure Architectures）   | https://learn.microsoft.com/ja-jp/azure/architecture/patterns/event-sourcing   |
----
-[^1]: EF Core Global Query Filters — https://learn.microsoft.com/en-us/ef/core/querying/filters  
-[^2]: Eric Evans『Domain-Driven Design』（2003）  
-[^3]: Event Sourcing パターン — https://learn.microsoft.com/ja-jp/azure/architecture/patterns/event-sourcing  
-[^4]: Kimball Group - Slowly Changing Dimensions — https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimension-type-1/  
-[^5]: Microsoft Learn - Temporal Tables — https://learn.microsoft.com/ja-jp/sql/relational-databases/tables/temporal-tables  
+| 内容                                                          | URL                                                                                                                                                          |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ※4 Martin Fowler — Event Sourcing（オリジナル定義、2005年）            | [https://martinfowler.com/eaaDev/EventSourcing.html](https://martinfowler.com/eaaDev/EventSourcing.html)                                                     |
+| ※5 Event Sourcing パターン（Microsoft Azure Architecture Center）   | [https://learn.microsoft.com/ja-jp/azure/architecture/patterns/event-sourcing](https://learn.microsoft.com/ja-jp/azure/architecture/patterns/event-sourcing)   |
+### SCD（緩やかに変化するディメンション）
+| 内容                                                | URL                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ※9 Kimball Group — Slowly Changing Dimensions の解説   | [https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimension-type-1/](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimension-type-1/)   |
+### 過去データの遡及修正・監査証跡
+| 内容                                                                  | URL                                                                                                                                                                                |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ※11 [SEC.gov](http://sec.gov/) — SOX Section 802（財務記録7年保存・改ざん防止の規定）   | [https://www.sec.gov/rules-regulations/2003/01/retention-records-relevant-audits-reviews](https://www.sec.gov/rules-regulations/2003/01/retention-records-relevant-audits-reviews)   |
+| Imperva — SOX Section 404 の内部統制要件の解説                                | [https://www.imperva.com/learn/data-security/sarbanes-oxley-act-sox/](https://www.imperva.com/learn/data-security/sarbanes-oxley-act-sox/)                                         |
+### SQL Server Temporal Tables
+| 内容                                            | URL                                                                                                                                                                                                                                                |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ※10 Temporal Tables 公式ドキュメント（Microsoft Learn）   | [https://learn.microsoft.com/ja-jp/sql/relational-databases/tables/temporal-tables](https://learn.microsoft.com/ja-jp/sql/relational-databases/tables/temporal-tables)                                                                             |
+| Temporal Tables 入門（Microsoft Learn）           | [https://learn.microsoft.com/ja-jp/sql/relational-databases/tables/getting-started-with-system-versioned-temporal-tables](https://learn.microsoft.com/ja-jp/sql/relational-databases/tables/getting-started-with-system-versioned-temporal-tables)   |

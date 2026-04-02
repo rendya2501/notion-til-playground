@@ -1,10 +1,13 @@
 ---
 title: "AI時代の技術記事：狂牛病（BSE）モデルと発酵モデルの対立"
 type: "Idea"
-description: "・狂牛病の発端 : https://claude.ai/chat/08894b52-df3c-4854-bc2c-fdb0d7a28d1e
+description: "AIが普及した時代において、「なぜ人間が技術記事を書くのか」という問いに対し、情報の劣化を招く**「狂牛病（BSE）モデル」と、人間の経験を加えて価値を昇華させる「発酵モデル」**という2つの比喩を用いて解き明かす考察記事です 。AI生成コンテンツのループによる「モデルコラプス（自己崩壊）」の危機を指摘しつつ、書き手が「菌（外部主体）」として介在することで、AIの骨組みを血肉の通った「納得解」へと変える手法と意義を提示しています 。
+
+・狂牛病の発端 : https://claude.ai/chat/08894b52-df3c-4854-bc2c-fdb0d7a28d1e
 ・https://claude.ai/chat/59ab3718-bfd1-44da-8e22-5fcfaca67763
 ・https://gemini.google.com/app/018cf089810b03c3
 ・https://claude.ai/chat/76fea406-5fda-4b78-8fd0-6484f826d724"
+tags: ["AI","Mindset","Poem","Consideration"]
 date: "2026-03-29T00:00:00"
 ---
 
