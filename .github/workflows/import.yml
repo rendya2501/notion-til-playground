@@ -17,7 +17,7 @@ jobs:
       # リポジトリのコードをランナー（ubuntu）にダウンロードしてくれる。
       # これがないと git push など後続のステップが動かない。
       - name: Checkout repository  # リポジトリをチェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
        
       # NotionからMarkdownをエクスポート
       # 自分の別リポジトリに置いたカスタムアクションを呼び出す。
@@ -39,5 +39,9 @@ jobs:
           git config --global user.email "${{ vars.USER_EMAIL }}"
           git config --global user.name "${{ vars.USER_NAME }}"        
           git add articles/
-          git commit -m "Import files from notion database (${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER})"
-          git push origin ${{ github.ref_name }}
+          if ! git diff --cached --exit-code --quiet; then
+            git commit -m "Import files from notion database (${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER})"
+            git push origin ${{ github.ref_name }}
+          else
+            echo "No changes in content, skipping commit."
+          fi
